@@ -1,0 +1,134 @@
+=pod
+
+=head1 Teddy Protocol for Irssi
+
+Teddy is a simple, JSON based protocol and WebSocket implementation
+for Irssi, written as a Perl script.
+
+WebSockets are currently popular on HTML5, they are created with a
+HTTP-Upgrade hand-shake and supported by Android 4.4 and modern Web
+browsers.
+
+This document describes the base Teddy protocol.
+
+=head1 WebSocket Basics
+
+WebSockets are usually denoted by a WebSocket URL:
+C<ws://hostname:port/endpoint> or C<wss> for secure (TLS) WebSockets.
+
+Connections to Irssi/teddy need to be opened by the remote viewing
+client. JavaScript example:
+
+    var webSocket = new WebSocket( url )
+
+
+=head1 Protocol
+
+The Teddy protocol messages are sent using JSON encoding. Using
+JavaScript as an example here:
+
+    webSocket.send( JSON.stringify(
+                           { key1: "value1", key2: "value2" } ) )
+    // equivalent
+    webSocket.send( "{\"key1\":\"value1\",\"key2\":\"value2\"}" )
+
+JSON is a dictionary/array based serialisation format. From now on,
+this document will only talk about the JSON messages.
+
+One request contains of a dictionary with at least one key, which is
+the name of a Teddy command. It may take different values (depending
+on the command). No parameters are usually specified with the empty
+dictionary ({})
+
+Every request can include an optional key C<id> for the client to
+easier identify a response from Irssi/teddy. If there is a response,
+then it will also include an C<id> key with the same value as the
+request.
+
+Irssi/teddy will now be called B<server> and the remote viewing client
+will be called B<client>. In the documentation, client->server
+messages are prefixed with C< E<gt>E<gt> > and server->client messages
+with C< E<lt>E<lt> >. Then, the raw JSON message is presented.
+
+B<Hint:> you can use the command
+
+    /ipw rawlog open websocket-rawlog
+
+from within Irssi to record WebSocket traffic I<before encoding to
+JSON and after decoding from JSON> to Mojo/Perl to
+F<websocket-rawlog>.
+
+=head2 Log-in (required) C<| challenge | login>
+
+Teddy uses a simple challenge-auth mechanism that avoids transmitting
+the password in plain text. Using TLS is strongly recommended as all
+other communication including oper/nickserv commands and chat content
+would otherwise be unencrypted!
+
+Client should initiate log-in by sending a random secret to the
+server (must be non-null):
+
+    >> {"challenge":"random client secret"}
+
+Server will reply with the server secret:
+
+    << {"challenge":"random server secret"}
+
+Now, client must calculate
+
+    HMAC-SHA256( password, concat( "random server secret",
+                                   "random client secret" ) )
+
+and send the result to server in Base64-Encoding
+
+    >> {"login":"base64-encoded hmac string"}
+
+In successful case, server will reply with
+
+    << {"login":true}
+
+Only after log-in, the other commands can be used. To disconnect,
+simply close the WebSocket.
+
+=head2 Executing Perl commands C<| eval>
+
+To do anything useful, arbitrary Perl commands can be remote-executed
+inside the Irssi process (they should be structured to be non-blocking
+or Irssi will freeze). All Irssi Perl functions are accessible.
+
+   >> {"eval":"arbitrary perl code, as a string"}
+
+If the code resulted in a return value, it is sent back to the
+client. Return values can not only be strings, but arbitrary Perl
+Hashes and Arrays will be serialised to JSON dictionary/array, but
+Objects such as returned by most Irssi API function won't transmit;
+they need to be transformed, ex. to plain hashes with
+
+    return +{%$object}
+
+    << {"eval":return value from perl code}
+
+=head2 Listening on Irssi signals C<| bind>
+
+Connecting to Irssi signals can be done with the C<bind> command
+
+    >> {"bind":{"irssi signal name":
+                       "perl signal handling code, as a string"}}
+
+No confirmations are given. However, next time the signal is triggered
+in Irssi, the handling code is executed. It will be called with the
+client object as the first parameter, the signal name as the second
+parameter, followed by the original signal parameters. The return
+value of the handling code is sent to the client:
+
+    << {"irssi signal name":return value of handling code}
+
+=head3 Stop listening on signals
+
+To stop listening for a signal, a C<null> handler can be used:
+
+    >> {"bind":{"irssi signal name":null}}
+
+
+=head1 The end
+

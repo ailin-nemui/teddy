@@ -1,0 +1,1138 @@
+=pod
+
+DRAFT
+
+=head1 Viewer protocol specific to Irssi
+
+Teddy is a simple, JSON based protocol and WebSocket implementation
+for Irssi, written as a Perl script.
+
+This is the "nu" extension set to implement a viewer client.
+
+=head1 Docs
+
+=head1 Data structures
+
+The data structures follow the existing Irssi documentation. Required
+Detail levels to receive this data given in parentheses. The
+structures are returned as indicated from events and getters and are
+serialised of the corresponding Irssi objects.
+
+=head2 Server
+
+=over
+
+=item * tag
+
+=item * (1) away_reason real_address nick chat_type usermode_away
+
+=item * (2) connect_time realname chatnet address port username version last_invite
+
+=item * (3) lag userhost wanted_nick connected reconnection server_operator
+
+=back
+
+=head2 Window
+
+=over
+
+=item * id view (active_win)
+
+=item * (1) refnum data_level name hilight_color active_server active cur_line
+
+=item * (2) last_timestamp last_line immortal sticky_refnum level first_line lines_count
+
+=back
+
+=head2 Item
+
+=over
+
+=item * id window type
+
+=item * (1) name visible_name chat_type topic server
+
+=item * (2) topic_by topic_time address server_tag last_unread_msg chanop unwanted ownnick
+
+=back
+
+=head2  Line
+
+=over
+
+=item * id hilight text (prevline)
+
+=item * (1) time public private no_act (fromnick)
+
+=item * (2) level timelen
+
+=back
+
+fromnick is not supported by core Irssi (such information is not
+recorded)
+
+=head2 Nicklist nick
+
+=over
+
+=item * nick prefixes
+
+=item * (1) realname host hops last_check gone serverop
+
+=back
+
+=head1 Events
+
+Events are sent when subscribed to them using subscription
+methods. They are modelled after the corresponding Irssi signals and
+are grouped by the corresponding data structures. The Subscription
+category is given in parentheses before the event name.
+
+=head2 Line
+
+=over
+
+=item (add) Line added
+
+    {"line added":
+     {<viewid>:[ line structures, in order ],...}}
+
+=item (alter) Line added after
+
+    {"line added after":
+     {<viewid>:[ line structures, in order ],...}}
+
+each first line that needs to be inserted after another line, has a
+C<prevline> attribute
+
+=item (alter) Line removed
+
+    {"line removed":
+     {<viewid>:[ line IDs ],...}}
+
+=back
+
+=head2 Window
+
+=over
+
+=item (ex) Window created
+
+    {"window created": window structure }
+
+=item (ex) Window destroyed
+
+    {"window destroyed": window ID }
+
+=item (attr) Window refnum changed
+
+    {"window refnum changed":
+     {"id"        :<windowid>,
+      "refnum"    :<new refnum>,
+      "old refnum":<old refnum>}}
+
+=item (attr) Window name changed
+
+    {"window name changed":
+     {"id"  :<windowid>,
+      "name":<new name>}}
+
+=item (attr) Window server changed
+
+    {"window server changed":
+     {"id"           :<windowid>,
+      "active_server":<new server>}}
+
+=item (attr) Item changed
+
+    {"window item changed":
+     {"id"    :<windowid>,
+      "active":<new item>}}
+
+=item (change) Window changed
+
+    {"window changed":
+     {"id"    :<windowid>,
+      "old id":<old windowid>}}
+
+=item (change) Window changed remote
+
+    {"window changed remote":
+     {"id"    :<windowid>,
+      "old id":<old windowid>}}
+
+=item (act) Window activity
+
+    {"window activity":
+     {"id"            :<windowid>,
+      "data_level"    :<new activity>,
+      "hilight_color" :...,
+      "old data_level":<old level>}}
+
+Irssi does not report activity notifications for any active or visible
+window, so teddy cannot report it either. Furthermore, it's difficult
+to get a list of visible (but not active) windows. If you want reports
+on all windows, subscribe to line add events.
+
+=back
+
+=head2 Nicklist
+
+=over
+
+=item (ex) Nicklist new
+
+    {"nicklist new":
+     {<itemid>: nick structure }}
+
+=item (ex) Nicklist changed
+
+    {"nicklist changed":
+     {<itemid>:
+      {"nick"    :<new nick>,
+       "old nick":<old nick>}}}
+
+=item (ex) Nicklist remove
+
+    {"nicklist remove":
+     {<itemid>:
+      {"nick":<nick>}}}
+
+=item (attr) Nick mode changed
+
+    {"nick mode change":
+     {<itemid>:
+      {"nick"    :<nick>,
+       "prefixes":<new prefixes>,
+       "mode"    :<changed mode>,
+       "type"    :<change type>}}}
+
+The inconsistency in naming stems from irssi's signal naming.
+
+=item (onjoin) Nicklist
+
+    {"nicklist":
+     {<itemid>:[ nick structures, ... ]}}
+
+=back
+
+=head2 Server
+
+=over
+
+=item (ex) Server connected
+
+    {"server connected": server structure }
+
+=item (ex) Server disconnected
+
+    {"server disconnected":<server tag>}
+
+=back
+
+=head2 Item
+
+=over
+
+=item (ex) Item new
+
+    {"window item new": item structure }
+
+=item (ex) Item remove
+
+    {"window item remove": item ID }
+
+=item (attr) Item moved
+
+    {"window item moved":
+     {"id"        :<item id>,
+      "window"    :<window id>,
+      "old window":<old winid>}}
+
+=item (attr) Item name changed
+
+    {"window item name changed":
+     {"id"          :<item id>,
+      "name"        :...,
+      "visible_name":...,
+      "topic"       :...}}
+
+Topic is optional
+
+=item (attr) Item server changed
+
+    {"window item server changed":
+     {"id"        :<item id>,
+      "server_tag":...,
+      "server"    :...}}
+
+=item (attr) Item topic changed
+
+    {"window item topic changed":
+     {"id"   :<item id>,
+      "topic":...}}
+
+=back
+
+=head1 Getters
+
+Getters are for fetching current data from Irssi. Parameters are
+optional. Most parameters act as filters to limit the result set. If
+they are omitted, all objects are returned.
+
+=head2 Line
+
+    {"line":{"get":
+     {"count"    :...,
+      "skip"     :...,
+      "level"    :[...],
+      "not level":[...],
+      "text"     :true/false,
+      "lv"       :...,
+      <viewid>:{ same attributes as above,
+                "after_line":...,
+                "before_line":... },
+      ...}}}
+
+=over
+
+=item count
+
+limit number of lines returned
+
+=item skip
+
+first skip that many lines (starting with the recent ones)
+
+=item (not) level
+
+only select lines with matching level
+
+=item text
+
+whether to include line text or only metadata
+
+=item lv
+
+detail level (see data structures)
+
+=item after_line
+
+a line ID of the last line not to send
+
+=item before_line
+
+a line ID of the first line not to send
+
+=item E<lt> viewid E<gt>
+
+view(s) of which to fetch lines
+
+=back
+
+If you want to do something useful with this you will want to give at
+least one viewid.
+
+=head3 Response
+
+    {"line":{"get":
+     {<viewid>:[ line structures, in order, ... ],
+       ...}}
+
+
+=head2 Window
+
+    {"window":{"get":
+     {"refnum"    :[...],
+      "id"        :[...],
+      "data_level":...,
+      "active"    :true/false,
+      "lv"        :...}}}
+
+=over
+
+=item refnum
+
+get window with this refnum
+
+=item id
+
+get window with this id
+
+=item data_level
+
+get only windows with this data_level
+
+=item active
+
+get only active window
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head3 Response
+
+    {"window":{"get":[ matching window structures ]}}
+
+
+=head2 Nicklist
+
+    {"nicklist":{"get":
+     {"item"  :[...],
+      "prefix":...,
+      "lv"    :...,
+      <itemid>:[...],
+      ...}}}
+
+=over
+
+=item E<lt> itemid E<gt>
+
+can be given a nickname/list of nicknames to only receive info about
+this nicks
+
+=item item
+
+list of item id (channels) which to fetch nicklist for
+
+=item prefix
+
+only get nicks with this prefix
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+Use itemid with a nickname to query a specific nick, or use item to
+get the (prefix-filtered or complete) nicklist of that item.
+
+=head3 Response
+
+    {"nicklist":{"get":
+     {<itemid>:[ nick structures... ],
+      ...}}}
+
+=head2 Server
+
+    {"server":{"get":
+     {"tag":[...],
+      "lv" :...}}}
+
+=over
+
+=item tag
+
+filter only servers with these tags
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head3 Response
+
+    {"server":{"get":[ server structures... ]}}
+
+
+=head2 Item
+
+    {"item":{"get":
+     {"window":[...],
+      "id"    :[...],
+      "type"  :[...],
+      "lv"    :...}}}
+
+=over
+
+=item window
+
+only get items of this window IDs
+
+=item id
+
+only get items with these IDs
+
+=item type
+
+filter items by type ("QUERY"/"CHANNEL")
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head3 Response
+
+    {"item":{"get":[ item structures... ]}}
+
+
+=head2 Subscription checking
+
+To receive the current subscriptions and filter settings.
+
+    {"subscription":{"get":
+     {<class>:
+      {<category>:{},
+       ...},
+      ...}}}
+
+=over
+
+=item E<lt> class E<gt>
+
+the data structure class
+
+=item E<lt> category E<gt>
+
+the category of events
+
+=back
+
+=head3 Response
+
+    {"subscription":{"get":{ subscription configuration... }}}
+
+
+=head2 Commandlist
+
+get a list of all commands currently known to Irssi
+
+    {"commandlist":{"get":{}}}
+
+=head3 Response
+
+    {"commandlist":{"get":[ list of commands, ... ]}}
+
+Hint, to get the command character you can use
+C<{"parse":{"data":"$k"}}>
+
+=head2 Line : Bookmark
+
+Retrieving information about bookmarks, e.g. trackbar
+
+    {"line":{"bookmark":
+     {"name" :...,
+      "count":true/false,
+      "text" :true/false,
+      "lv"   :...,
+      <viewid>:{ "lv":... },
+      ...}}}
+
+=over
+
+=item name
+
+name of the bookmark
+
+=item count
+
+whether to count the lines from bottom (avoid if not required)
+
+=item text
+
+whether to include line text or only metadata
+
+=back
+
+=head3 Response
+
+    {"line":{"get":
+     {<viewid>: the line structure or null if not found,
+       ...}}
+
+a I<count> field will be included if requested
+
+=head2 Window : Find
+
+Find window by name or level
+
+    {"window":{"find":
+     {"name"  :...,
+      "server":...
+      "level" :[...],
+      "lv"    :...}}}
+
+=over
+
+=item name
+
+Window name or maybe item name inside window
+
+=item server
+
+server tag to find window of specific server
+
+=item level
+
+search for window with specified level
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head3 Response
+
+    {"window":{"find": window structure, or [] if not found }}
+
+=head3 Item : Find
+
+Find item by name
+
+    {"item":{"find":
+     {"name"  :...,
+      "server":...,
+      "window":...,
+      "type"  :...,
+      "lv"    :...}}}
+
+=over
+
+=item name
+
+name of item (must not be I<null>)
+
+=item server
+
+server tag of item
+
+=item window
+
+only search in window with this window ID
+
+=item type
+
+restrict to QUERY/CHANNEL
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head3 Response
+
+    {"item":{"find": item structure, or [] if not found }}
+
+=head2 Nicklist : Find
+
+Find nick by mask (if known to Irssi)
+
+    {"nicklist":{"find":
+     {"mask"    :...,
+      "item"    :...,
+      "multiple":true/false,
+      "lv"      :...}}}
+
+=over
+
+=item mask
+
+mask of nick!user@host (must not be I<null>)
+
+=item item
+
+item ID of channel (must not be I<null>)
+
+=item multiple
+
+whether to search the whole nicklist or return first nick (avoid if
+not required)
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head3 Response
+
+    {"nicklist":{"find":
+     {<itemid>: nick structure }}}
+
+Responses may be incomplete if Irssi did not sync the channel (too
+many users), or syncing is turned off.
+
+=head2 Parse Irssi "Special Variables"
+
+    {"parse":
+     {"item"  :...,
+      "server":...,
+      "active":true/false,
+      "data"  :[...]}}
+
+return the Irssi-evaluation of variables such as '$N'
+
+=over
+
+=item item
+
+item ID
+
+=item server
+
+server tag
+
+=item active
+
+use active window
+
+=item data
+
+string to evaluate
+
+=back
+
+=head3 Response
+
+    {"parse":[ result string, ... ]}
+
+
+=head2 Info Fetch
+
+retrieve info stored with info store
+
+    {"info fetch":<client name>}
+
+=over
+
+=item E<lt> client name E<gt>
+
+a unique identifier for your teddy client
+
+=back
+
+=head3 Response
+
+    {"info fetch":...}
+
+returns the data previously stored under this client name, or []
+
+=head1 Methods
+
+=head2 Line : Earliest
+
+set the earliest seen line that a client has seen on a view
+
+    {"line":{"earliest":
+     {<viewid>:...,
+      ...}}}
+
+=over
+
+=item E<lt> viewid E<gt>
+
+should be given a B<timestamp> of the earliest complete
+timeframe. Only updates of lines with time newer than this will be
+transmitted.
+
+=back
+
+=head2 Window : Dehilight
+
+Remove activity marker of a window, e.g. when it was read in the
+viewer client
+
+    {"window":{"dehilight":
+     [ list of window IDs ]}}
+
+=head2 Window : Server Change
+
+Set another active server for a window (preferably use on empty
+windows only)
+
+    {"window":{"server change":
+     {<window id>:server tag,
+      ...}}}
+
+give a window id =E<gt> server tag mapping to change the servers
+
+=head2 Window : Item Change
+
+Set the currently active item of a multi-item window
+
+    {"window":{"server change":
+     {<window id>:<itemid>,
+      ...}}}
+
+=head2 Window : Change
+
+Change the currently active window B<in Irssi>
+
+    {"window":{"change":<window id>}}
+
+=head2 Item : Change
+
+Change window and item
+
+    {"item":{"change":<item id>}}
+
+=head2 Input
+
+Input commands or text to channels and Irssi
+
+    {"input":
+     {"item"   :...,
+      "server" :...,
+      "window" :...,
+      "active" :true/false,
+      "data"   :[...],
+      "command":[...],
+      "text"   :[...]}}
+
+=over
+
+=item item
+
+item ID of channel/query
+
+=item server
+
+server tag of server
+
+=item window
+
+window ID of window
+
+=item active
+
+use the currently in Irssi active window
+
+=item data
+
+send this data as if input on the Irssi input line
+
+=item command
+
+send this data as command (omit any / )
+
+=item text
+
+escape this data automatically if it starts with the cmdchar
+
+=back
+
+=head2 Complete Word
+
+ask Irssi for completion
+
+    {"complete word":
+     {"window"   :...,
+      "item"     :...,
+      "word"     :...,
+      "linestart":...}}
+
+B<Caveat>, Irssi can only complete I<by window>. If you specify an
+item, that item will be activated for convenience, be careful.
+
+=over
+
+=item window
+
+window ID for completion (will use active item and server)
+
+=item item
+
+item ID (item will be activated if necessary!)
+
+=item word
+
+(partial) word to complete (must not be I<null>)
+
+=item linestart
+
+content of input line B<before> word (must not be I<null>)
+
+=back
+
+=head3 Response
+
+    {"complete word":
+     {"space":...,
+      "list" :[...]}}
+
+=head2 Info Store
+
+store some client data inside Irssi
+
+    {"info store":{<client name>:...}}
+
+=over
+
+=item E<lt> client name E<gt>
+
+a unique identifier for your teddy client
+
+=back
+
+please store only small amounts of data, it is stored in the global
+Irssi /set config as ipw_clientdata (that means it is persistent if
+the user has autosave on or /save)
+
+=head2 Disconnect
+
+close the connection of the socket
+
+    {"disconnect":{}}
+
+
+
+=head1 Subscription management
+
+Subscriptions can be managed with four core commands, B<sub>,
+B<sub_add> and B<sub_rm>. To make or replace a subscription, use the
+B<sub> command.
+
+sub_add can be used to B<add items to a filter> list or to B<remove
+filters> by adding them with the I<null> value.
+
+To B<remove items from a filter> list, use sub_rm for modifying the
+existing subscriptions.
+
+B<Unsubscribe from events> by using the sub command with the I<null>
+value.
+
+List filters are often present in whitelist/blacklist pairs, it
+usually only makes sense to use one of the lists.
+
+Subscriptions are generally structured in a
+"class"-E<gt>sub-E<gt>"category"-E<gt>"filters" fashion.  The special
+value "*" can be used to subscribe to / modify all classes / categories.
+
+Only the "sub" command is shown in the documentation below, but the
+same syntax can be used for sub_add and sub_rm.
+
+Subscriptions can be verified with the subscription getter (see above).
+
+=head2 Line : Add
+
+    {"line":{"sub":
+     {"add":{"view"     :[...],
+             "not view" :[...],
+             "level"    :[...],
+             "not level":[...],
+             "text"     :true/false,
+             "lv"       :...,
+             <viewid>:{"level"    :[...],
+                       "not level":[...],
+                       "text"     :true/false,
+                       "lv"       :...},
+             ...}}}}
+
+=head2 Line : Alter
+
+    {"line":{"sub":
+     {"alter":"view"     :[...],
+              "not view" :[...],
+              "level"    :[...],
+              "not level":[...],
+              "text"     :true/false,
+              "lv"       :...,
+              <viewid>:{"level"    :[...],
+                        "not level":[...],
+                        "text"     :true/false,
+                        "lv"       :...},
+              ...}}}}
+
+=over
+
+=item (not) view
+
+list of view IDs for which to receive line events
+
+=item (not) level
+
+list of levels that should produce line events
+
+=item text
+
+whether to include text
+
+=item lv
+
+detail level (see structure)
+
+=item E<lt> viewid E<gt>
+
+per-view specification of level and text
+
+=back
+
+=head2 Window : Ex
+
+    {"window":{"sub":
+     {"ex":{"lv":...}}}}
+
+=over
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head2 Window : Attr
+
+    {"window":{"sub":
+     {"attr":{"id"    :[...],
+              "not id":[...]}}}}
+
+=over
+
+=item (not) id
+
+list of window IDs for which to report
+
+=back
+
+=head2 Window : Change
+
+    {"window":{"sub":
+     {"change":{"remote":true/false}}}}
+
+=over
+
+=item remote
+
+include remote changes
+
+=back
+
+=head2 Window : Act
+
+    {"window":{"sub":
+     {"act":{"id"        :[...],
+             "not id"    :[...].
+             "data_level":...}}}}
+
+=over
+
+=item (not) id
+
+list of window IDs for which to report
+
+=item data_level
+
+minimum data level for which to trigger
+
+=back
+
+=head2 Nicklist : Onjoin
+
+    {"nicklist":{"sub":
+     {"onjoin":{"lv":...}}}}
+
+automatically send nick list on join
+
+=over
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head2 Nicklist : Ex
+
+    {"nicklist":{"sub":
+     {"ex":{"item"    :[...],
+            "not item":[...],
+            "lv"      :...}}}}
+
+=over
+
+=item (not) item
+
+list of item IDs to which to get nicklist infos
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head2 Nicklist : Attr
+
+    {"nicklist":{"sub":
+     {"attr":{"item"    :[...],
+              "not item":[...]}}}}
+
+=over
+
+=item (not) item
+
+list of item IDs to which to get mode changes
+
+=back
+
+=head2 Server : Ex
+
+    {"server":{"sub":
+     {"ex":{"lv":...}}}}
+
+=over
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head2 Item : Ex
+
+    {"item":{"sub":
+     {"ex":{"type"    :[...],
+            "not type":[...],
+            "lv"      :...}}}}
+
+=over
+
+=item (not) type
+
+filter the items by type
+
+=item lv
+
+detail level (see data structures)
+
+=back
+
+=head2 Item : Attr
+
+    {"item":{"sub":
+     {"attr":{"id"      :[...],
+              "not id"  :[...],
+              "type"    :[...],
+              "not type":[...]}}}}
+
+=over
+
+=item (not) id
+
+list of item IDs to report on
+
+=item (not) type
+
+filter the item changes by type
+
+=back
+
+=head1 Todo / Other
+
+=over
+
+=item * dccs() ?
+
+=item * Error messages?
+
+=item * support for redirect_event?
+
+=back
