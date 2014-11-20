@@ -1,0 +1,47 @@
+# -*- perl -*-
+use strict;
+use warnings;
+
+Irssi::settings_add_str('', 'timestamp_format', '%H:%M');
+Irssi::Test::add_window(
+    Irssi::UI::Window->new(
+	'data_level'	 => 0,
+	'height'	 => 36,
+	'hilight_color'	 => '',
+	'history_name'	 => '',
+	'immortal'	 => 1,
+	'last_timestamp' => 0,
+	'level'		 => 4194303,
+	'name'		 => '(status)',
+	'refnum'	 => 1,
+	'servertag'	 => '',
+	'sticky_refnum'	 => 0,
+	'theme'		 => undef,
+	'theme_name'	 => '',
+	'width'		 => 184,
+	_items => [
+	    Irssi::Channel->new(name => '#irssi', nicks => [qw[Spaceball root]], topic => 'Hello!'),
+	],
+	lines => [
+[ undef, '%B-%n!%B-%n There are 187 users and 97210 invisible on 26 servers', ],
+[ undef, '%B-%n!%B-%n 31 IRC Operators online', ],
+[ undef, '%B-%n!%B-%n 14 unknown connection(s)', ],
+[ undef, '%B-%n!%B-%n 48609 channels formed', ],
+[ undef, '%B-%n!%B-%n I have 4410 clients and 1 servers', ],
+[ undef, '%B-%n!%B-%n 4410 5837 Current local users 4410, max 5837', ],
+[ undef, '%B-%n!%B-%n 97397 99525 Current global users 97397, max 99525', ],
+[ undef, '%B-%n!%B-%n Highest connection count: 5838 (5837 clients) (654905 connections received)', ],
+[ undef, '%B-%n!%B-%n Mode change %K[%n+i%K]%n for user %_ailin', ],
+[ undef, '%B-%n!%B-%n %Cailin%n %K[%c~ailin@ip92346d3e.dynamic.kabel-deutschland.de%K]%n has joined %_#hsimxx', ],
+[ undef, '%K[%gUsers %G#hsimxx%K]', ],
+[ undef, '%K[%n%_@%_Nei%K]%n %K[%n%_ %_ailin%K]%n ', ],
+[ undef, '%B-%n!%B-%n %_Irssi:%_ %_#hsimxx%_: Total of %_2%_ nicks %K[%n%_1%_ ops, %_0%_ halfops, %_0%_ voices, %_1%_ normal%K]', ],
+[ undef, '%B-%n!%B-%n Channel %c#hsimxx%n created Thu Nov 20 15:37:26 2014', ],
+[ undef, '%B-%n!%B-%n %_Irssi:%_ Join to %_#hsimxx%_ was synced in %_4%_ secs', ],
+[ undef, '%B-%n!%B-%n %_Irssi:%_ Unknown command: SCRIPT', ],
+[ undef, '%B-%n!%B-%n %_Irssi:%_ Loaded module %_perl/core', ],
+[ undef, '%B-%n!%B-%n %_Irssi:%_ Loaded module %_perl/fe', ],
+[ undef, '%B-%n!%B-%n %_Irssi:%_ Loaded script %_linebuffer', ],
+	],
+    )
+   );
