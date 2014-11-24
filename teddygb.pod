@@ -1,0 +1,222 @@
+=pod
+
+=head1 Glowing Bear extension to Teddy
+
+Teddy is a simple, JSON based protocol and WebSocket implementation
+for Irssi, written as a Perl script.
+
+This extension provides the necessary shims to make the Glowing Bear
+HTML5 WebSocket viewer client work. It is thus heavily inspired by
+L<the WeeChat relay
+protocol|http://weechat.org/files/doc/devel/weechat_relay_protocol.en.html>
+(but only implements the necessary subset used by Glowing Bear).
+
+It does B<not> implement the WeeChat relay protocol. As a Teddy
+extension, it is still purely JSON based and uses the same command
+reply routes. The JavaScript side implementation that was written for
+Glowing Bear is only 30 lines.
+
+I<If you want to create your own client for Teddy, it would be much
+better to extend Teddy with more native events instead of using this
+extension!>
+
+=head1 Protocol
+
+The regular Teddy protocol is still available and its log-in mechanism
+B<must> be used. For more infos about protocol and the data sent in
+events/hdata, you should also compare with the WeeChat documentation
+of relay protocol.
+
+=head2 Check Teddy/irssi version and other infos C<| info>
+
+Info is the WeeChat API to query string-based data/variables.
+
+    >> {"gb.info":{"name":"version"}}
+    << {"gb.info":{"version":teddy version}}
+
+=head2 "HData", buffer list (windows+items), activity list, scrollback history C<| hdata>
+
+HData is the WeeChat API to get dictionary-based data out of it.
+
+=head3 Buffer list
+
+Buffer list is similar to Irssi's windows but includes all window
+items. Only the C<*> request is supported.
+
+    >> {"gb.hdata":{"path":"buffer:gui_buffers(*)"}}
+    << {"gb.hdata":[
+          {"full_name":"...",
+           "local_variables:{"name":"...","type":"...","visible_name":"..."},
+           "number":...,
+           "pointers":[...,...],
+           "short_name":"...",
+           "title":"..."},
+          ...]}
+
+=head3 Hotlist
+
+Hotlist is similar to the Irssi Act: display but instead shows the
+count of lines of various types. Only the C<*> request is supported.
+
+    >> {"gb.hdata":{"path":"hotlist:gui_hotlist(*)"}}
+    << {"gb.hdata":[{"buffer":...,"count":[...,...,...,...]},...]}
+
+=head3 Scrollback history
+
+Most important for a view client, fetching the scrollback history. The
+request path must match on this regular expression:
+
+    buffer:0x(\d+)/own_lines/last_line\(-(\d+)(?:,(\d+))?\)/data
+
+The first digit group is the buffer pointer, second is the number of
+lines to load, starting from bottom (most recent), third (optional)
+the number of lines to skip (because already fetched)
+
+    >> {"gb.hdata":{"path":"buffer:0x.../own_lines/last_line(-...,...)/data"}}
+    << {"gb.hdata":[{"buffer":...,
+                  "date":"...",
+                  "displayed":1,
+                  "fromnick":...,
+                  "highlight":...,
+                  "message":"...",
+                  "pointers":[...],
+                  "prefix":"...",
+                  "strtime":"...",
+                  "tags_array":[...]},
+                 ...]}
+
+=head2 User input and programmatic command input C<| input>
+
+Most user input as well as some client-issued command input is sent to
+WeeChat in an input message.
+
+    >> {"gb.input":{"buffer":"weechat style buffer name",
+                 "data":"command or text to input"}}
+
+The special buffer name C<core.weechat> supports the commands
+C</buffer> to switch active window, C</clearhotlist> to deactivate a
+window's act entry, and C</quit> to friendly close the
+connection. Otherwise, the name is usually
+C<protocol.servertag.itemname>
+
+=head2 Fetch nicklist of people in channel C<| nicklist>
+
+This command will download the list of all nicks currently in this
+"buffer".
+
+    >> {"gb.nicklist":{"buffer":"weechat style buffer name"}}
+    << {"gb.nicklist":[{"group":1,"name":"root","pointers":[...],"visible":0},
+                    {"group":1,"name":"005|  @","pointers":[...],"visible":0},...,
+                    {"group":1,"name":"015|  +","pointers":[...],"visible":0},...,
+                    {"group":1,"name":"020|   ","pointers":[...],"visible":0},...,
+                    {"group":0,
+                     "name":"...",
+                     "pointers":[...,...],
+                     "prefix":"...",
+                     "type":"nick",
+                     "visible":1},...]}
+
+The returned result-set is in a weird WeeChat specific format with
+nicks sorted by mode (op, halfop, voice, ...)
+
+=head2 Enable and disable WeeChat style relay events C<| sync | desync>
+
+To start listening for WeeChat-style relay events, use the C<sync>
+command:
+
+    >> {"gb.sync":{}}
+
+To stop it:
+
+    << {"gb.desync":{}}
+
+With sync enabled, WeeChat style event notifications will be sent on
+similar Irssi events (just like if the "bind" command in raw Teddy had
+been used)
+
+=head1 WeeChat style events
+
+The events are sent with an C<id> of the event name (this is different
+from normal Teddy usage). The included data is a JSON-conversion of
+the WeeChat relay protocol, as used by Glowing Bear.
+
+=head2 _buffer_line_added
+
+A line was added to the end of the buffer
+
+    << {"gb.hdata":[{"buffer":...,"date":"...","displayed":1,
+                  "fromnick":"...","highlight":...,"message":"...",
+                  "pointers":[...], ... SAME AS IN SCROLLBACK HISTORY ...
+                 },...],"id":"gb._buffer_line_added"}
+
+
+=head2 _buffer_line_added_after
+
+    << {"gb.hdata":[{"buffer":...,"date":"...","displayed":1,
+                  "fromnick":"...", ... SAME AS IN SCROLLBACK HISTORY ...
+                 },...],
+        "prevline":pointer of line previous to this,
+        "id":"gb._buffer_line_added_after"}
+
+Line was added in the middle of the buffer somewhere; the previous
+line is given, this line should be added after it.
+
+=head2 _buffer_line_removed
+
+    << {"lines":{pointer of buffer:[array of line pointers to remove],...},
+        "id":"gb._buffer_line_added_after"}
+
+The lines with the given pointers should be removed (maybe they were
+replaced with other lines)
+
+=head2 _buffer_opened
+
+Window or window item was created/moved to/...
+
+    << {"gb.hdata":...,"id":"gb._buffer_opened"}
+
+=head2 _buffer_closing
+
+Window or window item was destroyed/moved from/...
+
+    << {"gb.hdata":{"pointers":[...]},"id":"gb._buffer_closing"}
+
+=head2 _buffer_title_changed
+
+The topic of channel changed, or the number of a window changed
+
+    << {"gb.hdata":...,"id":"gb._buffer_title_changed"}
+
+=head2 _buffer_renamed
+
+Name of a buffer changed (e.g. query nick change), or server changed
+
+    << {"gb.hdata":...,"id":"gb._buffer_renamed"}
+
+=head2 _nicklist_diff
+
+    << {"gb.hdata":{...,"_diff":...},"id":"gb._nicklist_diff"}
+
+The secret key C<_diff> tells about the type of nicklist edit
+operation: 64 mode change, 33 nick left, 118 nick change, 43 nick
+joined.
+
+=head2 _buffer_activate
+
+Recommend that the viewer client switch to another buffer
+
+    << {"buffer":...,"id":"gb._buffer_activate"}
+
+=head2 _buffer_clear_hotlist
+
+Tell the viewer client to clear the hotlist of this buffer
+
+    << {"buffer":...,"id":"gb._buffer_clear_hotlist"}
+
+=head2 _buffer_item_active
+
+Tell the viewer client that the current active item of a buffer
+changed
+
+    << {"item":...,"id":"gb._buffer_item_active"}
+

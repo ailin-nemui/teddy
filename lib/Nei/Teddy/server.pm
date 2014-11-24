@@ -9,8 +9,12 @@ sub start_server {
     app->mode('production');
     app->log->level('fatal');
 
-    #app->static->paths->[0] = teddy_get_S()->{docroot};
-    @{app->static->paths}=();
+    if (exists teddy_get_S()->{docroot}) {
+	app->static->paths->[0] = teddy_get_S()->{docroot};
+    }
+    else {
+	@{app->static->paths}=();
+    }
 
     my $scheme = teddy_get_S()->{ssl} ? 'https' : 'http';
     my @args = (do { local $@; my $o = eval { Socket::SO_REUSEPORT }; $@ ? () : 'reuse=1' });
@@ -54,6 +58,7 @@ sub ws_client_disconnect {
 	    if defined $client->{ping};
     ipw_rawlog_record($client, [_ => 'disconnected', time, $client->tx->remote_address]);
     @{teddy_all_clients()} = grep { defined && $_ != $client } @{teddy_all_clients()};
+    Irssi::signal_emit('ipw client disconnected', $client->{rawlog_id} // 0);
     Irssi::printformat(MSGLEVEL_CLIENTCRAP,
 		       thm 'client_disconnected', $client->tx->remote_address, $client->{rawlog_id} // 0);
 }
@@ -74,6 +79,7 @@ sub ws_client_connect {
 		    &handle_message;
 		});
     $client->on(finish => \&ws_client_disconnect);
+    Irssi::signal_emit('ipw client connected', $client->tx->remote_address, $client->{rawlog_id});
     weaken $client;
     push @{teddy_all_clients()}, $client;
 }

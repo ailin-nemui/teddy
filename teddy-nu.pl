@@ -15,8 +15,9 @@ use Irssi::TextUI;
 use File::Basename 'dirname';
 use File::Spec;
 use Cwd 'abs_path';
+use constant ScriptFile => __FILE__;
 
-use lib File::Spec->catdir(dirname(abs_path(__FILE__)), 'lib');
+use lib File::Spec->catdir(dirname(abs_path(+ScriptFile)), 'lib');
 
 use IrssiX::include;
 use Nei::Mojo::Reactor::Irssi4;
@@ -47,6 +48,7 @@ include 'Nei::Teddy::server';
 #### Extensions specifics added
 
 include 'Nei::Teddy::Nu';
+include 'Nei::Teddy::Gb';
 
 ### End extension specifics
 

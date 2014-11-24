@@ -83,7 +83,7 @@ sub nu_line_added {
 	unshift @lines, $l if $l;
     }
     return unless @lines;
-    check_line_removals_before_add($client, $viewid, \@lines);
+    nu_check_line_removals_before_add($client, $viewid, \@lines);
 
     $client->{earliest_line_time}{$viewid} ||= time;
     $client->send({json => +{
@@ -216,7 +216,7 @@ sub nu_send_line_removals {
     return;
 }
 
-sub check_line_removals_before_add {
+sub nu_check_line_removals_before_add {
     my ($client, $viewid, $lines) = @_;
     my $rmaa = $client->{send_line_delayed_rmaa} or return;
     my $box = $rmaa->{box} or return;

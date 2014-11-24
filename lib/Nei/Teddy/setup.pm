@@ -27,6 +27,11 @@ sub setup_changed {
 	timestamp_theme	 => $old_S{timestamp_theme},
 	timestamp_render => $old_S{timestamp_render},
        );
+    my @need_restart = qw(host port cert key ssl password);
+    for (values %{teddy_extensions()}) {
+	$_->{setup_changed_pre}->(\%S, \%old_S, \@need_restart)
+	    if exists $_->{setup_changed_pre};
+    }
     lock_keys %S;
 
     if (length $S{cert} && !-e $S{cert}) {
@@ -54,7 +59,6 @@ sub setup_changed {
 	    if exists $_->{setup_changed};
     }
 
-    my @need_restart = qw(host port cert key ssl password); # docroot
     if ((join $;, map { defined $S{$_} ? ($_, $S{$_}) : () } @need_restart)
 	    ne (join $;, map { defined $old_S{$_} ? ($_, $old_S{$_}) : () } @need_restart)) {
 	start_server() unless $S{stopped};
@@ -91,6 +95,10 @@ sub teddy_setup {
 
     Irssi::settings_add_bool(setc, set 'enable_quit'  => 0);
 
+    Irssi::signal_register({
+	'ipw client connected' => [qw[string integer]],
+	'ipw client disconnected' => [qw[integer]],
+       });
     init();
     for (values %{teddy_extensions()}) {
 	$_->{init}->()
