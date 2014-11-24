@@ -145,30 +145,31 @@ my %nu_events = (
 sub _get_args_from_spec_1 {
     my ($spec, $msg, $ret, $empty_spec) = @_;
     return unless 'HASH' eq ref $msg;
+    my %unused; @unused{(keys %$msg)} = ();
     for my $name (@{ $spec->{scalar} // [] }, @{ $spec->{min} // [] }, @{ $spec->{max} // [] }) {
 	if (exists $msg->{$name} && !ref $msg->{$name} &&
 		(defined $msg->{$name} || $empty_spec)) {
-	    $ret->{$name} = $msg->{$name};
+	    $ret->{$name} = $msg->{$name}; delete $unused{$name};
 	}
     }
     for my $sname (@{ $spec->{list} // [] }) {
 	(my $name = $sname) =~ s/^-/not /;
 	if (exists $msg->{$name}) {
 	    if ('ARRAY' eq ref $msg->{$name}) {
-		$ret->{$sname} = [ grep { defined } @{$msg->{$name}} ];
+		$ret->{$sname} = [ grep { defined } @{$msg->{$name}} ]; delete $unused{$name};
 	    }
 	    elsif (defined $msg->{$name} && !ref $msg->{$name}) {
-		$ret->{$sname} = [ $msg->{$name} ];
+		$ret->{$sname} = [ $msg->{$name} ]; delete $unused{$name};
 	    }
 	    elsif (!defined $msg->{$name} && $empty_spec) {
-		$ret->{$sname} = undef;
+		$ret->{$sname} = undef; delete $unused{$name};
 	    }
 	}
     }
     for my $name (@{ $spec->{bool} // [] }) {
 	if (exists $msg->{$name}) {
 	    $ret->{$name} = ($empty_spec && !defined $msg->{$name}) ? undef
-		: !!$msg->{$name};
+		: !!$msg->{$name}; delete $unused{$name};
 	}
     }
     my ($smap) = grep { /_map_$/ } keys %$spec;
@@ -177,10 +178,13 @@ sub _get_args_from_spec_1 {
 	if ('HASH' eq ref $spec->{$smap}) { # sub-spec
 	    for my $id (@ids) {
 		if ('HASH' eq ref $msg->{$id}) {
-		    _get_args_from_spec_1($spec->{$smap}, $msg->{$id}, $ret->{$smap}{$id} = +{});
+		    my @unused =
+			_get_args_from_spec_1($spec->{$smap}, $msg->{$id}, $ret->{$smap}{$id} = +{});
+		    delete $unused{$id};
+		    @unused{(map { "$id/$_" } @unused)} = ();
 		}
 		elsif (!defined $msg->{$id} && $empty_spec) {
-		    $ret->{$smap}{$id} = undef;
+		    $ret->{$smap}{$id} = undef; delete $unused{$id};
 		}
 	    }
 	}
@@ -188,27 +192,28 @@ sub _get_args_from_spec_1 {
 	    for my $id (@ids) {
 		if (defined $msg->{$id}) {
 		    $ret->{$smap}{$id} = 'ARRAY' eq ref $msg->{$id}
-			? [ grep { defined } @{$msg->{$id}} ] : [ $msg->{$id} ];
+			? [ grep { defined } @{$msg->{$id}} ] : [ $msg->{$id} ]; delete $unused{$id};
 		}
 		elsif ($empty_spec) {
-		    $ret->{$smap}{$id} = undef;
+		    $ret->{$smap}{$id} = undef; delete $unused{$id};
 		}
 	    }
 	}
 	elsif ('scalar' eq $spec->{$smap} || 'max' eq $spec->{$smap} || 'min' eq $spec->{$smap}) {
 	    for my $id (@ids) {
 		if (!ref $msg->{$id} && (defined $msg->{$id} || $empty_spec)) {
-		    $ret->{$smap}{$id} = $msg->{$id};
+		    $ret->{$smap}{$id} = $msg->{$id}; delete $unused{$id};
 		}
 	    }
 	}
 	elsif ('bool' eq $spec->{$smap}) {
 	    for my $id (@ids) {
 		$ret->{$smap}{$id} = ($empty_spec && !defined $msg->{$id}) ? undef
-		    : !!$msg->{$id};
+		    : !!$msg->{$id}; delete $unused{$id};
 	    }
 	}
     }
+    return sort keys %unused;
 }
 
 sub _get_args_from_spec {
@@ -216,7 +221,10 @@ sub _get_args_from_spec {
     my ($otype, $cat) = @$cl;
     my $spec = $sub ? $nu_events{$otype}{$cat}{'.spec'}{sub}
 	: $nu_events{$otype}{'.spec'}{$cat};
-    _get_args_from_spec_1($spec, $msg, my $ret = +{}, $sub && $sub eq 'sub_empty');
+    my @unused =
+	_get_args_from_spec_1($spec, $msg, my $ret = +{}, $sub && $sub eq 'sub_empty');
+    logmsg("unused spec in main/".(join '/', grep { !/^\./ } @$cl).": ".(join ', ', @unused))
+	if $cl && @unused;
     return $ret;
 }
 
@@ -1030,7 +1038,7 @@ my %nu_main = (
 	for my $m (@$msg) {
 	    next unless 'HASH' eq ref $m;
 	    my $args = _get_args_from_spec($m, $class);
-	    handle_nu_input($client, $args);
+	    handle_nu_input($client, $args, $class);
 	}
 	return;
     },
@@ -1041,7 +1049,7 @@ my %nu_main = (
 	# "parse":{"item":...,"server":...,"window":...,"data":...}
 	return unless 'HASH' eq ref $msg;
 	my $args = _get_args_from_spec($msg, $class);
-	my ($win, $ser, $it) = nu_find_target($args);
+	my ($win, $ser, $it) = nu_find_target($args, $class);
 	if ($it) {
 	    return [ map { $it->parse_special($_) } @{$args->{data} // []} ];
 	}
@@ -1059,7 +1067,7 @@ my %nu_main = (
 	return unless 'HASH' eq ref $msg;
 	my $args = _get_args_from_spec($msg, $class);
 	return +{} unless defined $args->{word} && defined $args->{linestart};
-	my ($win, $ser, $it) = nu_find_target($args);
+	my ($win, $ser, $it) = nu_find_target($args, $class);
 	local $client->{nu_sent_change_command} = 1;
 	if ($it) {
 	    my $win = $it->window;

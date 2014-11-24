@@ -217,7 +217,7 @@ sub handle_gb_hdata {
     if (my $fun = $simple_hdata{$path}) {
 	$fun->($client, $msg);
     }
-    elsif ($path =~ m{^buffer:0x(\d+)/own_lines/last_line\(-(\d+)(?:,(\d+))?\)/data$}) {
+    elsif ($path =~ m{^buffer:0x(-?\d+)/own_lines/last_line\(-(\d+)(?:,(\d+))?\)/data$}) {
 	my ($winid, $lastlines, $skiplines) = ($1, $2, $3);
 	gb_lines_for($client, $winid, $lastlines, $skiplines);
     }

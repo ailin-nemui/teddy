@@ -3,7 +3,7 @@ use warnings;
 
 
 sub nu_find_target {
-    my ($msg) = @_;
+    my ($msg, $cl) = @_;
     my ($foundwin, $serobj, $itobj);
 
     my @wins;
@@ -17,6 +17,8 @@ sub nu_find_target {
 		}
 	    }
 	}
+	logmsg("item ".$msg->{item}." not found in main/".(join '/', grep { !/^\./ } @$cl))
+	    if $cl && !$itobj;
     }
     if (defined $msg->{window}) {
 	@wins = Irssi::windows unless @wins;
@@ -26,6 +28,8 @@ sub nu_find_target {
 		last;
 	    }
 	}
+	logmsg("window ".$msg->{window}." not found in main/".(join '/', grep { !/^\./ } @$cl))
+	    if $cl && !$foundwin;
     }
     elsif ($msg->{active}) {
 	$foundwin = Irssi::active_win;
@@ -77,7 +81,7 @@ sub nu_input_stop_quit {
 }
 
 sub handle_nu_input {
-    my ($client, $msg) = @_;
+    my ($client, $msg, $class) = @_;
     my $cmdchars = Irssi::parse_special('$K');
     local $client->{sent_own_command} = 1;
     my @input = (
@@ -91,7 +95,7 @@ sub handle_nu_input {
     Irssi::signal_add_first('command quit', 'nu_input_stop_quit')
 	    if $stop_quit;
     for (@input) {
-	my ($win, $ser, $it) = nu_find_target($msg);
+	my ($win, $ser, $it) = nu_find_target($msg, $class);
 	local $client->{windowinput} = [ $_, $ser, $it ];
 	$win->command('ipw proxyinput');
     }
