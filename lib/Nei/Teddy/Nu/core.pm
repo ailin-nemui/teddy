@@ -51,6 +51,7 @@ my %nu_events = (
 	    'window name changed'   => \&nu_signal_name_changed,
 	    'window server changed' => \&nu_signal_window_server_changed,
 	    'window item changed'   => \&nu_signal_item_changed,
+	    'window level changed'  => \&nu_signal_window_level_changed,
 	},
 	change => +{
 	    '.spec' => +{
@@ -104,6 +105,13 @@ my %nu_events = (
 	    },
 	    'server connected'	  => \&nu_signal_server_connected,
 	    'server disconnected' => \&nu_signal_server_disconnected,
+	},
+	attr => +{
+	    '.spec' => +{
+		sub => +{  list => [qw[tag -tag]] } ,
+	    },
+	    'server nick changed' => \&nu_signal_server_nick_changed,
+	    'away mode changed' => \&nu_signal_server_away_changed,
 	},
     },
 
@@ -223,8 +231,9 @@ sub _get_args_from_spec {
 	: $nu_events{$otype}{'.spec'}{$cat};
     my @unused =
 	_get_args_from_spec_1($spec, $msg, my $ret = +{}, $sub && $sub eq 'sub_empty');
-    logmsg("unused spec in main/".(join '/', grep { !/^\./ } @$cl).": ".(join ', ', @unused))
-	if $cl && @unused;
+    logmsg("unused spec in ".(join '/', ($sub ? 'sub' : 'main'), grep { !/^\./ } @$cl).": "
+	       .(join ', ', @unused))
+	if !$sub && $cl && @unused;
     return $ret;
 }
 

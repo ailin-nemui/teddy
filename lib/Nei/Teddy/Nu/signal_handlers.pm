@@ -341,6 +341,19 @@ sub nu_signal_window_server_changed {
     return;
 }
 
+sub nu_signal_window_level_changed {
+    my $class = [ 'window', 'attr' ];
+    my ($client, $signame, $win, $server) = @_;
+    nu_check_id($client, $class, id => $win->{_irssi}) || return;
+    $client->send({ json => {
+	'window level changed' => +{
+	    id => $win->{_irssi},
+	    level => [ split ' ', Irssi::bits2level($win->{level}) ],
+	},
+    } });
+    return;
+}
+
 sub nu_send_item_changed {
     my $class = [ 'window', 'attr' ];
     my ($client, $id, $ref) = @_;
@@ -485,6 +498,33 @@ sub nu_signal_server_disconnected {
     nu_check_id($client, $class, tag => $server->{tag}) || return;
     $client->send({ json => {
 	'server disconnected' => $server->{tag},
+       } });
+    return;
+}
+
+sub nu_signal_server_nick_changed {
+    my $class = [ 'server', 'attr' ];
+    my ($client, $signame, $server) = @_;
+    nu_check_id($client, $class, tag => $server->{tag}) || return;
+    $client->send({ json => {
+	'server nick changed' => {
+	    tag => $server->{tag},
+	    kvslice_uni2($server, qw(nick)),
+	},
+       } });
+    return;
+}
+
+sub nu_signal_server_away_changed {
+    my $class = [ 'server', 'attr' ];
+    my ($client, $signame, $server) = @_;
+    nu_check_id($client, $class, tag => $server->{tag}) || return;
+    $client->send({ json => {
+	'server away mode changed' => {
+	    tag => $server->{tag},
+	    kvslice_bool($server, qw(usermode_away)),
+	    kvslice_uni2($server, qw(away_reason)),
+	},
        } });
     return;
 }

@@ -143,6 +143,12 @@ C<prevline> attribute
      {"id"           :<windowid>,
       "active_server":<new server>}}
 
+=item (attr) Window level changed
+
+    {"window level changed":
+     {"id"   :<windowid>,
+      "level":[new level]}}
+
 =item (attr) Item changed
 
     {"window item changed":
@@ -227,6 +233,19 @@ The inconsistency in naming stems from irssi's signal naming.
 =item (ex) Server disconnected
 
     {"server disconnected":<server tag>}
+
+=item (attr) Server nick changed
+
+    {"server nick changed":
+     {"tag" :<server tag>,
+      "nick":<new nick>}}
+
+=item (attr) Server away mode changed
+
+    {"server away mode changed":
+     {"tag"          :<server tag>,
+      "usermode_away":true/false,
+      "away_reason"  :...}}
 
 =back
 

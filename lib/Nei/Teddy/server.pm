@@ -108,6 +108,10 @@ sub as_uni2 {
 
 sub handle_message {
     my ($client, $msg) = @_;
+    unless ('HASH' eq ref $msg) {
+	logmsg("unknown command: ".shortdump($msg));
+	return;
+    }
     my $id = delete $msg->{id};
     my %reply;
     for my $cmd (sort _teddy_main_cmd_order_sort keys %$msg) {
