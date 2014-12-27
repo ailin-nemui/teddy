@@ -54,8 +54,7 @@ sub teddy_server_cmd_stop {
 sub ws_client_disconnect {
     my $client = shift;
     remove_client_signals($client);
-    Irssi::timeout_remove(delete $client->{ping})
-	    if defined $client->{ping};
+    core_remove_client_ping($client);
     ipw_rawlog_record($client, [_ => 'disconnected', time, $client->tx->remote_address]);
     @{teddy_all_clients()} = grep { defined && $_ != $client } @{teddy_all_clients()};
     Irssi::signal_emit('ipw client disconnected', $client->{rawlog_id} // 0);

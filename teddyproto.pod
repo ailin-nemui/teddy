@@ -130,5 +130,38 @@ To stop listening for a signal, a C<null> handler can be used:
     >> {"bind":{"irssi signal name":null}}
 
 
+=head2 Configuring keepalive pings C<| send keepalive>
+
+The default ping interval is set to 10 seconds, it consists of an
+empty object:
+
+    << {}
+
+It can be configured with C<send keepalive>
+
+    >> {"send keepalive":
+        {"interval":...,
+         "none":true/false,
+         "time":true/false}}
+
+=over
+
+=item interval
+
+ping interval, in seconds (I<required>)
+
+=item none
+
+if true, do not send ping
+
+=item time
+
+if true, send timestamp instead of object. The ping sent will be:
+
+    << [unix timestamp]
+
+
+=back
+
 =head1 The end
 
