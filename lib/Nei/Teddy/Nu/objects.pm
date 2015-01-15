@@ -47,7 +47,7 @@ sub nu_window_info {
 	   ) }),
 	lfilter_sub($lv > 1, sub { (
 	    level => [ split ' ', Irssi::bits2level($w->{level}) ],
-	    first_line => ($v->{buffer}{cur_line}||+{})->{_irssi},
+	    first_line => ($v->{buffer}{first_line}||+{})->{_irssi},
 	   ) }),
     }
 }
