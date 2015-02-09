@@ -51,15 +51,50 @@ sub teddy_server_cmd_stop {
     teddy_get_S()->{stopped} = 1;
 }
 
+my (%delayed_print_connect, %delayed_print_waiting, %delayed_print_waiting_time);
+sub teddy_ws_client_disconnected_waiting {
+    [ map { [ $_, $delayed_print_waiting{$_}, $delayed_print_waiting_time{$_} ] }
+	sort { $delayed_print_waiting_time{$b} <=> $delayed_print_waiting_time{$a} }
+	    keys %delayed_print_waiting ] };
+sub ws_client_disconnect_print_delayed {
+    my ($remote_addr, $rawlog_id) = @_;
+
+    unless (teddy_get_S()->{connectmsg_delay} >= 10) {
+	Irssi::printformat(MSGLEVEL_CLIENTCRAP,
+			   thm 'client_disconnected', $remote_addr, $rawlog_id);
+    }
+    else {
+	$delayed_print_waiting{$remote_addr}++;
+	$delayed_print_waiting_time{$remote_addr} = time;
+	Irssi::timeout_add_once(
+	    abs teddy_get_S()->{connectmsg_delay},
+	    sub {
+		$delayed_print_waiting{$remote_addr}--;
+		unless (teddy_get_S()->{connectmsg_delay} &&
+			    ($delayed_print_connect{$remote_addr} || $delayed_print_waiting{$remote_addr})) {
+		    Irssi::printformat(MSGLEVEL_CLIENTCRAP,
+				       thm 'client_disconnected', $remote_addr, $rawlog_id);
+		}
+		delete $delayed_print_waiting{$remote_addr},
+		    delete $delayed_print_waiting_time{$remote_addr}
+			unless $delayed_print_waiting{$remote_addr};
+	    }, '');
+    }
+    delete $delayed_print_connect{$remote_addr}unless $delayed_print_connect{$remote_addr};
+}
+
 sub ws_client_disconnect {
     my $client = shift;
     remove_client_signals($client);
     core_remove_client_ping($client);
-    ipw_rawlog_record($client, [_ => 'disconnected', time, $client->tx->remote_address]);
+    my $remote_addr = $client->tx->remote_address;
+    my $rawlog_id = $client->{rawlog_id} // 0;
+    $delayed_print_connect{$remote_addr}--;
+    ipw_rawlog_record($client, [_ => 'disconnected', time, $remote_addr]);
     @{teddy_all_clients()} = grep { defined && $_ != $client } @{teddy_all_clients()};
     Irssi::signal_emit('ipw client disconnected', $client->{rawlog_id} // 0);
-    Irssi::printformat(MSGLEVEL_CLIENTCRAP,
-		       thm 'client_disconnected', $client->tx->remote_address, $client->{rawlog_id} // 0);
+
+    ws_client_disconnect_print_delayed($remote_addr, $rawlog_id);
 }
 
 sub ws_client_connect {
@@ -70,15 +105,20 @@ sub ws_client_connect {
     $client->{rawlog_on} = \(my $x = teddy_rawlog_on());
     my ($lastid) = sort { $b <=> $a } 0, map { $_->{rawlog_id} } grep { defined } @{teddy_all_clients()};
     $client->{rawlog_id} = ++$lastid;
-    Irssi::printformat(MSGLEVEL_CLIENTCRAP,
-		      thm 'client_connected', $client->tx->remote_address, $client->{rawlog_id});
-    ipw_rawlog_record($client, [_ => 'connected', $client->{connect_time}, $client->tx->remote_address]);
+    my $remote_addr = $client->tx->remote_address;
+    unless (teddy_get_S()->{connectmsg_delay} >= 10 &&
+		($delayed_print_connect{$remote_addr} || $delayed_print_waiting{$remote_addr})) {
+	Irssi::printformat(MSGLEVEL_CLIENTCRAP,
+			   thm 'client_connected', $remote_addr, $client->{rawlog_id});
+    }
+    $delayed_print_connect{$remote_addr}++;
+    ipw_rawlog_record($client, [_ => 'connected', $client->{connect_time}, $remote_addr]);
     $client->on(json => sub {
 		    &ipw_rawlog_recv;
 		    &handle_message;
 		});
     $client->on(finish => \&ws_client_disconnect);
-    Irssi::signal_emit('ipw client connected', $client->tx->remote_address, $client->{rawlog_id});
+    Irssi::signal_emit('ipw client connected', $remote_addr, $client->{rawlog_id});
     weaken $client;
     push @{teddy_all_clients()}, $client;
 }

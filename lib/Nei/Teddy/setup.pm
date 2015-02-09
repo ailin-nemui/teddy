@@ -20,6 +20,7 @@ sub setup_changed {
 	password	 => Irssi::settings_get_str( set 'password'),
 	stopped		 => ($old_S{stopped} || 0),
 	rawlog		 => Irssi::settings_get_bool(set 'rawlog'),
+	connectmsg_delay => Irssi::settings_get_time(set 'connectmsg_delay'),
 
 	enable_quit	 => Irssi::settings_get_bool(set 'enable_quit'),
 
@@ -92,6 +93,7 @@ sub teddy_setup {
     Irssi::settings_add_str( setc, set 'key'	  => '');
     Irssi::settings_add_str( setc, set 'password'     => '');
     Irssi::settings_add_bool(setc, set 'rawlog'	  => 1);
+    Irssi::settings_add_time(setc, set 'connectmsg_delay' => '10min');
 
     Irssi::settings_add_bool(setc, set 'enable_quit'  => 0);
 

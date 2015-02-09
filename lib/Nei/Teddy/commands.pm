@@ -57,6 +57,12 @@ sub cmd_ipw_list {
 			   (scalar keys %{$cl->{signal}||+{}}), scalar localtime $cl->{connect_time},
 			   $cl->{sent_own_command} ? '*' : ' ', $cl->{rawlog_id} // 0);
     }
+    for my $wcl (@{teddy_ws_client_disconnected_waiting()}) {
+	next unless $wcl;
+	Irssi::printformat(MSGLEVEL_CLIENTCRAP, thm 'client_line', $i++, $wcl->[0],
+			   '(disconnected)', 0, scalar localtime $wcl->[2],
+			   $wcl->[1], 0);
+    }
     Irssi::printformat(MSGLEVEL_CLIENTCRAP, thm 'client_footer');
 }
 
