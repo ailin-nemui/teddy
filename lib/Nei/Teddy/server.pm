@@ -170,9 +170,10 @@ sub handle_message {
 	#}; logmsg($@) if $@;
     }
     return unless $client->{authenticated} or $reply{challenge};
-    if (%reply) {
-	$reply{id} = $id if defined $id;
 
+    $reply{id} = $id if defined $id;
+
+    if (%reply) {
 	$client->send({ json => \%reply });
     }
 }

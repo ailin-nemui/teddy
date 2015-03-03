@@ -41,9 +41,11 @@ on the command). No parameters are usually specified with the empty
 dictionary ({})
 
 Every request can include an optional key C<id> for the client to
-easier identify a response from Irssi/teddy. If there is a response,
-then it will also include an C<id> key with the same value as the
-request.
+easier identify a response from Irssi/teddy. If the C<id> key is
+specified, then there will be a response including the C<id> key with
+the same value, and all the other responses. If the request did not
+produce a response, only the C<id> will be sent back
+nevertheless. (B<Incompatible> change with version 0.94)
 
 Irssi/teddy will now be called B<server> and the remote viewing client
 will be called B<client>. In the documentation, client->server

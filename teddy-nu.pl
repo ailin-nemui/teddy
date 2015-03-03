@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-our $VERSION = '0.9';
+our $VERSION = '0.94';
 our %IRSSI = (
     contact     => 'Nei @ anti@conference.jabber.teamidiot.de',
     url         => "http://anti.teamidiot.de/",

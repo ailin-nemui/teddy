@@ -388,7 +388,7 @@ sub nu_signal_item_changed {
 sub nu_signal_window_changed {
     my $class = [ 'window', 'change' ];
     my ($client, $signame, $win, $oldwin) = @_;
-    !$client->{sent_own_command} || nu_check_get($client, $class, 'remote', 1)
+    $client->{sent_own_command} || nu_check_get($client, $class, 'remote', 1)
 	|| return;
     my $ev = $client->{sent_own_command} ? 'window changed' : 'window changed remote';
     $client->send({ json => {

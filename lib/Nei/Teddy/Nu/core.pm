@@ -55,7 +55,7 @@ my %nu_events = (
 	},
 	change => +{
 	    '.spec' => +{
-		sub => +{ },
+		sub => +{ bool => [qw[remote]] },
 	    },
 	    'window changed'		  => \&nu_signal_window_changed,
 	    # #'window changed automatic' => ...,
