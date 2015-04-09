@@ -3,24 +3,57 @@ use warnings;
 
 sub gb_find_window {
     my ($data, $needserver) = @_;
-    my ($chatnet, $server, $item) = split /\./, $data, 3;
     my ($foundwin, $serobj, $itobj);
 
-    if ($chatnet eq 'empty') {
-	$foundwin = Irssi::window_find_refnum($server);
-	if ($needserver
-		&& (my $win = Irssi::window_find_closest('', Irssi::level2bits('ALL')))) {
-	    $serobj = $win->{active_server};
-	}
-    }
-    elsif ($serobj = Irssi::server_find_tag($server)) {
-	if (length $item) {
-	    if ($itobj = $serobj->window_item_find($item)) {
-		$foundwin = $itobj->window;
+    if ($data =~ /^0x(-?\d+)$/) {
+	my $id = $1;
+    LOOP: {
+	    for my $ser (Irssi::servers) {
+		if ($ser->{_irssi} == $id) {
+		    $serobj = $ser;
+		    $foundwin = $serobj->window_find_closest('', Irssi::level2bits('ALL'));
+		    last LOOP;
+		}
+	    }
+	    for my $win (Irssi::windows) {
+		if ($win->{_irssi} == $id) {
+		    $foundwin = $win;
+		    if ($needserver
+			    && (my $win = Irssi::window_find_closest('', Irssi::level2bits('ALL')))) {
+			$serobj = $win->{active_server};
+		    }
+		    last LOOP;
+		}
+		for my $it ($win->items) {
+		    if (_iid_or_self($it) == $id) {
+			$foundwin = $win;
+			$serobj = $it->{server};
+			$itobj = $it;
+			last LOOP;
+		    }
+		}
 	    }
 	}
-	else {
-	    $foundwin = $serobj->window_find_closest('', Irssi::level2bits('ALL'));
+    }
+    else {
+	my ($chatnet, $server, $item) = split /\./, $data, 3;
+
+	if ($chatnet eq 'empty') {
+	    $foundwin = Irssi::window_find_refnum($server);
+	    if ($needserver
+		    && (my $win = Irssi::window_find_closest('', Irssi::level2bits('ALL')))) {
+		$serobj = $win->{active_server};
+	    }
+	}
+	elsif ($serobj = Irssi::server_find_tag($server)) {
+	    if (length $item) {
+		if ($itobj = $serobj->window_item_find($item)) {
+		    $foundwin = $itobj->window;
+		}
+	    }
+	    else {
+		$foundwin = $serobj->window_find_closest('', Irssi::level2bits('ALL'));
+	    }
 	}
     }
 

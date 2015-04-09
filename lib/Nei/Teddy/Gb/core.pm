@@ -3,7 +3,7 @@ use warnings;
 
 my $custom_xform;
 sub gb_custom_xform : lvalue { $custom_xform }
-my $version_info = 'Irssi v'.Irssi::parse_special('$J')." - Teddy v". our $VERSION;
+my $version_info = '4Irssi v'.Irssi::parse_special('$J')." - Teddy v". our $VERSION;
 sub gb_version_info { $version_info }
 
 sub enable_wee_sync {

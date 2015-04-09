@@ -12,7 +12,7 @@ sub wee_nicklist_nick_format {
 	}
 	return +{
 	    pointers => [ $ch->{_irssi},  delete $_->{_irssi} ],
-	    name => delete $_->{nick},
+	    name => as_uni2(delete $_->{nick}),
 	    prefix => (substr $_->{prefixes}.($_->{other}>32 ? chr $_->{other} : '').($_->{op}?'@':'').($_->{halfop}?'%':'').($_->{voice}?'+':'').' ', 0, 1),
 	    type => lc delete $_->{type},
 	    #(%$_),
@@ -72,7 +72,7 @@ sub wee_gui_buffers_server {
 	number => $win->{refnum},
 	full_name => $full_name,
 	short_name => $name,
-	title => $server->{nick}.' @ '.$server->{tag}.
+	title => as_uni2($server->{nick}).' @ '.$server->{tag}.
 	    ' ('.($server->{real_address}||$server->{address}).')',
 	#notify => ...,
 	local_variables => +{ type => lc $server->{type} },
@@ -99,7 +99,7 @@ sub wee_gui_buffers_item {
     my $win = $it->window;
     my $name = remove_uniform_vars($it, as_uni2($it->{visible_name} || $it->{name}));
     my $full_name =
-	(join '.', (lc $it->{chat_type}//'core'), $it->{server}{tag}, $it->{name});
+	(join '.', (lc $it->{chat_type}//'core'), ($it->{server}{tag}//$it->{server_tag}), as_uni2($it->{name}));
     my %lv;
     $lv{type} = $it->{type} eq 'QUERY' ? 'private' : lc $it->{type};
     $lv{name} = $it->{name};
