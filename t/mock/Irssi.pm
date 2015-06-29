@@ -38,7 +38,8 @@ sub import {
     my $P = __PACKAGE__;
     eval "package $pkg;
 open CLIENTCRAP, '>&', \*STDIN;
-*INPUT_READ;
+*INPUT_READ = \\&${P}::INPUT_READ;
+*INPUT_WRITE = \\&${P}::INPUT_WRITE;
 *MSGLEVEL_HILIGHT = \\&${P}::MSGLEVEL_HILIGHT;
 *MSGLEVEL_NO_ACT = \\&${P}::MSGLEVEL_NO_ACT;
 *MSGLEVEL_CLIENTERROR = \\&${P}::MSGLEVEL_CLIENTERROR;
