@@ -49,6 +49,8 @@ my %commands = (
     login => sub {
 	my $key = pop;
 	my ($client, $msg) = @_;
+	return unless length $msg;
+	return unless exists $client->{s2};
 	if (hmac_sha256_base64(teddy_get_S()->{password}, $client->{s2}.$client->{s1}) eq $msg) {
 	    $client->{authenticated} = 1;
 	    core_add_client_ping($client, 10);

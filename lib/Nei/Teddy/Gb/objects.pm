@@ -75,7 +75,10 @@ sub wee_gui_buffers_server {
 	title => as_uni2($server->{nick}).' @ '.$server->{tag}.
 	    ' ('.($server->{real_address}||$server->{address}).')',
 	#notify => ...,
-	local_variables => +{ type => lc $server->{type} },
+	local_variables => +{
+	    type => (lc $server->{type}),
+	    server => $server->{tag},
+	},
     }
 }
 
@@ -90,7 +93,7 @@ sub wee_gui_buffers_empty {
 	short_name => $name,
 	title => $win->{level} ? gb_version_info() : $name,
 	#notify => ...,
-	local_variables => +{},
+	local_variables => +{ server => '', },
     }
 }
 
@@ -104,6 +107,7 @@ sub wee_gui_buffers_item {
     $lv{type} = $it->{type} eq 'QUERY' ? 'private' : lc $it->{type};
     $lv{name} = $it->{name};
     $lv{visible_name} = $it->{visible_name};
+    $lv{server} = ($it->{server}{tag}//$it->{server_tag});
     +{
 	pointers => [ $it->{_irssi}, $win->{_irssi} ],
 	number => $win->{refnum},
