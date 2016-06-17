@@ -132,7 +132,7 @@ sub nu_line_collect {
     my ($line, $need_text, $onlevel, $offlevel) = @_;
     my $time = $line->{info}{time};
     my $lv = $line->{info}{level};
-    if ($time > 2*time) {
+    if ($time > 2*time || $time < 0) {
 	# logmsg("weird line time:".Irssi::bits2level($line->{info}{level})." "
 	# 	   .shortdump($line).$line->get_text(0));
 	$time = 0;

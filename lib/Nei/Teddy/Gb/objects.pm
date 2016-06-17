@@ -124,7 +124,7 @@ sub wee_line_collect {
     my $line = shift;
     my $time = $line->{info}{time};
     my $lv = $line->{info}{level};
-    if ($time > 2*time) {
+    if ($time > 2*time || $time < 0) {
 	# logmsg("weird line time:".Irssi::bits2level($line->{info}{level})." "
 	# 	   .shortdump($line).$line->get_text(0));
 	$time = 0;
