@@ -131,11 +131,14 @@ sub as_uni {
     $var
 }
 
+BEGIN { die "Broken Encode version (2.88)" if $Encode::VERSION eq '2.88'; }
+
 sub as_uni2 {
     my $var = shift;
     use bytes;
     $var =~ s/\cD#\K(....)/pack 'U*', unpack 'C*', $1/ge;
-    Encode::decode_utf8($var, sub{pack 'U', +shift});
+    $var = Encode::decode_utf8($var, sub{pack 'U', +shift});
+    $var
 }
 
 { my %pl = do { my $i = 1; map { ( $_ => -$i++ ) } reverse
