@@ -146,8 +146,10 @@ sub _itime { max(10, int($_[0] * 1000)) }
 # Copied from the AnyEvent binding
 sub bind {
     my $pkg = caller;
+    my $class = __PACKAGE__;
     our @ISA = $pkg;
-    eval "package $pkg; " . <<'PERL';
+    eval <<'PERL' =~ s[\{\{(.*?)\}\}][eval "$1"]ger;
+package {{$pkg}};
 # the Irssi Reactor binding script
 use Mojo::Base 'Mojo::Reactor';
 
@@ -160,10 +162,34 @@ sub irssi_input_remove     { shift; &Irssi::input_remove     }
 Irssi::signal_add_first "command script unload" => sub {
     (my $data = $_[0]) =~ s/\s+(.*)//;
     Irssi::signal_stop
-	if __PACKAGE__ eq "Irssi::Script::\L$data" && (!$1 || '-force' ne "\L$1")
+	    if __PACKAGE__ eq "Irssi::Script::\L$data" && (!$1 || '-force' ne "\L$1");
 };
 
-sub UNLOAD { Mojo::IOLoop->reset; return }
+sub _irssi_script_destroyed {
+    my $script = shift;
+    my $data = __PACKAGE__ =~ s/^Irssi::Script:://r;
+    package {{$class}};
+    our @USERS = grep { $_ ne $script->{name} } @USERS;
+    unless (@USERS) {
+	Irssi::command "script unload $data -force";
+    }
+    return;
+}
+
+Irssi::signal_register({
+    'script destroyed' => [ 'Irssi::Script' ]
+});
+
+sub UNLOAD {
+    Mojo::IOLoop->reset;
+    Irssi::signal_remove "script destroyed" => "_irssi_script_destroyed";
+    package {{$class}};
+    our @ISA = grep { $_ ne "{{$pkg}}" } @ISA;
+    Irssi::command "script unload $_" for our @USERS;
+    return;
+}
+
+Irssi::signal_add "script destroyed" => "_irssi_script_destroyed";
 
 1;
 PERL
@@ -171,7 +197,15 @@ PERL
     print __PACKAGE__." fatal compilation error: $@" if $@;
 }
 
-Irssi::command "script exec -permanent ".__PACKAGE__."::bind 'Mojo support'";
+sub import {
+    my $caller = caller;
+    if ($caller =~ s/^Irssi::Script:://) {
+	push our(@USERS), $caller;
+    }
+    unless (grep { /^Irssi::Script::/ } our @ISA) {
+	Irssi::command "script exec -permanent ".__PACKAGE__."::bind 'Mojo support'";
+    }
+}
 
 1;
 

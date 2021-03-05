@@ -41,7 +41,7 @@ sub add_signal_binds {
 		    generic_signal($sig, @_)
 		};
 	    }
-	    if ($sig eq 'window created') {
+	    if ($sig eq 'window created' || $sig eq 'gui print text finished') {
 		Irssi::signal_add_last($sig, $fun);
 	    }
 	    else {

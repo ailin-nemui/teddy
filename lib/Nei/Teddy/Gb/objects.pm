@@ -130,9 +130,10 @@ sub wee_line_collect {
 	$time = 0;
 	$lv = MSGLEVEL_NEVER;
     }
+    my $text = as_uni2($line->get_text(1));
     return +{
 	ref => $line->{_irssi},
-	text => as_uni2($line->get_text(1)),
+	text => $text,
 	time => $time,
 	level => $lv,
     }

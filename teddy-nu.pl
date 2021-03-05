@@ -63,6 +63,12 @@ teddy_commands_init();
 { package Irssi::Nick }
 
 sub UNLOAD {
+    for (teddy_all_clients()) {
+	$_->finish;
+	ws_client_disconnect($_);
+    }
+    @{teddy_all_clients()} = ();
     teddy_server_stop();
     teddy_rawlog_stop();
+    return;
 }
