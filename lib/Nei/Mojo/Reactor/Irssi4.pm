@@ -17,12 +17,20 @@ sub stop { carp "cannot stop" unless caller eq 'Mojo::IOLoop' }
 sub is_running { 1 }
 
 sub again {
-    shift->_dotime(shift());
+    shift->_dotime(@_);
     return;
 }
 
 sub recurring { shift->_timer(1, @_) }
 sub timer { shift->_timer(0, @_) }
+
+sub next_tick {
+    my $self = shift;
+    my ($cb) = @_;
+    push @{$self->{next_tick}}, $cb;
+    $self->{next_timer} //= $self->timer(0 => \&_next);
+    return undef;
+}
 
 sub io {
     my ($self, $handle, $cb) = @_;
@@ -61,16 +69,17 @@ sub reset {
 
 sub _dispatch {
     my $self = shift;
-    my $tag = shift;
+    my $id = shift;
     if (@_) {
-	my $io = $self->{io}{$tag};
+	my $io = $self->{io}{$id};
 	weaken $io; # the read cb can nuke it
 	$self->_sandbox('Read', $io->{cb}, 0) if $_[0];
 	$self->_sandbox('Write', $io->{cb}, 1) if $_[1] && $io;
     }
     else {
-	my $t = $self->{timers}{$tag};
-	$self->_sandbox("Timer $tag", $t->{cb}) if $t->{cb};
+	my $t = $self->{timers}{$id};
+	$self->_sandbox("Timer $id", $t->{cb}) if $t->{cb};
+	delete $self->{timers}{$id} unless $t->{recurring};
     }
 }
 
@@ -78,7 +87,6 @@ sub watch {
     my ($self, $handle, $read, $write) = @_;
     my $fn = fileno $handle;
     my $io = $self->{io}{$fn};
-    my $oldtag = $io->{tag} // "x";
     $self->irssi_input_remove(delete $io->{tag}) if defined $io->{tag};
     my $mode;
     $mode |= Irssi::INPUT_READ if $read;
@@ -97,6 +105,12 @@ sub _sandbox {
     eval { $self->$cb(@_); 1 } or $self->emit(error => "$event failed: $@");
 }
 
+sub _next {
+    my $self = shift;
+    delete $self->{next_timer};
+    while (my $cb = shift @{$self->{next_tick}}) { $self->$cb }
+}
+
 sub _timer {
     my ($self, $recurring, $after, $cb) = @_;
 
@@ -104,17 +118,18 @@ sub _timer {
     my $id;
     do { $id = md5_sum('t' . steady_time . rand 999) } while $timers->{$id};
     $timers->{$id}
-	= {cb => $cb, after => $after, recurring => $recurring};
+	= {cb => $cb, recurring => $recurring};
 
-    my $tag = $self->_dotime($id);
+    my $tag = $self->_dotime($id, $after);
     return $id;
 }
 
 sub _dotime {
     my $self = shift;
-    my $id = shift;
+    my ($id, $after) = @_;
     my $t = $self->{timers}{$id};
     $self->irssi_timeout_remove(delete $t->{tag}) if defined $t->{tag};
+    $t->{after} = $after if defined $after;
     if ($t->{recurring}) {
 	weaken $self;
 	$t->{tag} = $self->irssi_timeout_add(_itime($t->{after}), sub {$self->_dispatch($id)}, '')
